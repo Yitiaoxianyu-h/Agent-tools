@@ -320,8 +320,7 @@ python agent_tools.py subagent logs t20260930-225628-qkmj --tail 30
 python agent_tools.py subagent pause  t20260930-225628-qkmj            # 暂停
 python agent_tools.py subagent resume t20260930-225628-qkmj            # 恢复
 python agent_tools.py subagent stop   t20260930-225628-qkmj            # 停止
-python agent_tools.py subagent update t20260930-225628-qkmj \
-       --instruction "输出文件名改成 workspace/汇总_v2.md"               # 追加/修改指令
+python agent_tools.py subagent update t20260930-225628-qkmj --instruction "输出文件名改成 workspace/汇总_v2.md"   # 追加/修改指令
 
 # ⑤ 其他
 python agent_tools.py subagent list            # 列出全部任务（含 pid / worker_alive）
