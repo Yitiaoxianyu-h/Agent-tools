@@ -4,6 +4,11 @@
 管进程、读剪贴板、找色定位……全部集中在一个 `agent_tools.py` 里，既能命令行调用，
 也能当模块 import。
 
+在此基础上还提供了一个**副 Agent（SubAgent）**：给它配一个统一的 API Key，
+主 Agent 就能用一条终端命令把子任务派出去，副 Agent 自己规划、自己调工具（桌面操控 /
+Shell / 文件读写）直到做完，主 Agent 随时**查看 / 追加指令 / 暂停 / 恢复 / 停止**——
+详见 [第 8 节](#8-副-agent-subagent)。
+
 ---
 
 ## 1. 环境与依赖
@@ -15,6 +20,8 @@
 | `pygetwindow` | 窗口列表（可选） |
 | `pywin32`（`win32gui` / `win32con` / `win32process` / `win32clipboard`） | 窗口句柄、置顶、剪贴板 |
 | `psutil` | 进程管理 |
+| `openai` | 副 Agent 的大模型调用（OpenAI 兼容端点） |
+| `PySide6` | 副 Agent 控制台（Qt 图形界面） |
 | `_vendor/windows_capture` | 后台抓帧（WGC / D3D11），窗口被遮挡甚至最小化也能截到真实像素 |
 | `_vendor/numpy` | 找色（`findcolor`）用 |
 
@@ -245,3 +252,144 @@ at.click_on_window(win, 0.50, 0.95)   # 底部中间
 | 等待窗口 | `wait --title x` | `at.wait_for_window(...)` | 启动程序后等它就绪，替代 `sleep` |
 | 窗口置顶 | `topmost --title x [--off]` | `at.set_topmost(win, True)` | 操作/截图时防止被别的窗口遮挡 |
 | 是否置顶 | — | `at.is_topmost(win)` | 查询置顶状态 |
+
+---
+
+## 8. 副 Agent（SubAgent）
+
+参考多 Agent 协作类开源项目的思路，把「派活」和「干活」拆开：
+
+- **主 Agent**（比如你自己、或一个终端里的 AI 代理）只负责拆解与调度，用一条命令把子任务派出去；
+- **副 Agent** 是一个独立后台进程（`subagent.py`），用统一配置的 API Key 调用任意
+  OpenAI 兼容大模型，自己规划步骤、自己调工具（**桌面操控 / PowerShell / 文件读写**），
+  直到把任务做完并写出最终结果；
+- 两者通过 `tasks/<task_id>/` 下的**文件信号**通信，所以主 Agent 从任何终端、任何时刻
+  都能查看进度、追加指令、暂停、恢复、停止——Qt 界面里看到的和终端里看到的完全一致。
+
+涉及文件：
+
+| 文件 | 作用 |
+| --- | --- |
+| `subagent.py` | 副 Agent 引擎 + 全部命令行（配置、任务持久化、控制信号、Agent Loop） |
+| `subagent_ui.py` | PySide6 图形界面（配置 API Key、管理任务） |
+| `config.json` | 统一配置（API Key 等），UI 与命令行共享 |
+| `tasks/<task_id>/` | 每个任务一个目录（元信息 / 状态 / 控制信号 / 日志 / 结果） |
+| `workspace/` | 副 Agent 的默认工作目录 |
+
+### 8.1 Qt 界面：配置统一的副 Agent API Key
+
+```bash
+python agent_tools.py subagent ui    # 或 python subagent_ui.py
+```
+
+界面上半部分配置（保存后写入项目根目录 `config.json`，命令行与所有任务共用）：
+
+| 字段 | 默认 | 说明 |
+| --- | --- | --- |
+| Base URL | `https://api.deepseek.com/v1` | OpenAI 兼容端点（注意带 `/v1`） |
+| API Key | 空 | **所有副 Agent 任务共用这一个 Key** |
+| 模型 | `deepseek-chat` | 任意 OpenAI 兼容模型名 |
+| 温度 / 最大步数 / Shell 超时 | 0.3 / 30 / 60 秒 | 最大步数是兜底，防止任务停不下来 |
+| 工作目录 | `./workspace` | 副 Agent 读写文件、执行 Shell 的默认目录 |
+| 启用工具 | 桌面 / Shell / 文件全开 | 不想让它碰桌面或执行命令就取消勾选 |
+
+下半部分是任务列表与实时日志：**新建 / 暂停 / 恢复 / 停止 / 追加指令 / 打开任务目录 / 删除**，
+运行中的任务还会显示进程 pid 与存活标记（绿 ● 存活，红 ✘ 已退出）。
+
+> 环境变量 `SUBAGENT_API_KEY`（或 `OPENAI_API_KEY`）、`SUBAGENT_BASE_URL`、
+> `SUBAGENT_MODEL` 优先级高于 `config.json`，可用来临时覆盖。
+
+### 8.2 主 Agent 怎么调用（终端方式）
+
+主 Agent 不需要任何额外集成，**直接执行命令行**即可；所有命令都输出 JSON（`list` /
+`status` / 控制类命令）或人读日志（`logs`），方便程序解析。
+
+```bash
+# ① 派发任务：后台起独立进程，立即返回 task_id，不阻塞
+python agent_tools.py subagent run --task "统计 workspace 目录下所有 txt 的总行数，把结果写到 workspace/汇总.md"
+# → {"task_id": "t20260930-225628-qkmj", "status": "running", "pid": 30588, ...}
+
+# ② 查看状态：status 取值 pending / running / paused / done / failed / stopped
+#    done 时返回里带 result 字段 = 副 Agent 的最终回答；failed 时带 error
+python agent_tools.py subagent status t20260930-225628-qkmj
+
+# ③ 查看执行过程（每一步调了什么工具、结果是什么）
+python agent_tools.py subagent logs t20260930-225628-qkmj --tail 30
+
+# ④ 随时干预
+python agent_tools.py subagent pause  t20260930-225628-qkmj            # 暂停
+python agent_tools.py subagent resume t20260930-225628-qkmj            # 恢复
+python agent_tools.py subagent stop   t20260930-225628-qkmj            # 停止
+python agent_tools.py subagent update t20260930-225628-qkmj \
+       --instruction "输出文件名改成 workspace/汇总_v2.md"               # 追加/修改指令
+
+# ⑤ 其他
+python agent_tools.py subagent list            # 列出全部任务（含 pid / worker_alive）
+python agent_tools.py subagent rm t20260930-225628-qkmj               # 删除任务记录
+python agent_tools.py subagent config --show                           # 查看配置（Key 打码）
+python agent_tools.py subagent run --task "..." --foreground           # 前台阻塞执行
+```
+
+> `python subagent.py <命令>` 与 `python agent_tools.py subagent <命令>` 完全等价，
+> 后者是为了让主 Agent 只需记住一个入口。
+
+**推荐的主 Agent 调度循环**（伪代码）：
+
+```
+r    = run --task "<子任务描述>"            # 拿到 r.task_id
+loop:
+    st = status <r.task_id>
+    if st.status == "done":    采纳 st.result，结束
+    if st.status == "failed":  读 st.error / logs <id>，决定重试（重新 run）或放弃
+    if st.status == "paused":  resume <id>，或先 update --instruction 再 resume
+    if 计划有变:               update <id> --instruction "..."   # 下一步立即生效
+    if 不再需要:               stop <id>
+    等待 5~10 秒再轮询
+```
+
+查看类字段的两个补充：`status`/`list` 里 `pid` 是副 Agent 进程号，`worker_alive` 表示
+进程是否存活（仅运行中/暂停的任务有）——如果 `status` 一直是 `running` 但
+`worker_alive` 为 `false`，直接 `resume` 会自动重新拉起一个副 Agent 继续干。
+
+### 8.3 编程方式调用（Python）
+
+```python
+import subagent
+
+tid = subagent.create_task("整理截图", "把 workspace 里的截图按日期分目录")  # 只落盘不执行
+subagent.spawn(tid)                       # 后台起一个副 Agent 进程，立即返回 pid
+
+subagent.task_status(tid)                 # dict：status / steps / result / error / worker_alive
+subagent.read_log(tid, tail=30)           # 逐步事件
+subagent.request_pause(tid)               # 暂停 / 恢复 / 停止
+subagent.request_resume(tid)
+subagent.request_stop(tid)
+subagent.request_instruction(tid, "文件名加上日期前缀")   # 追加指令
+```
+
+### 8.4 控制原理（主 Agent 为什么能"随时干预"）
+
+主 Agent 与副 Agent 是两个独立进程，靠 `tasks/<task_id>/` 下的文件协同：
+
+```
+tasks/<task_id>/
+  meta.json     任务元信息：标题 / status / steps / pid / result / error
+  state.json    运行时状态：当前第几步、最新在做什么
+  control.json  控制信号：desired = run|pause|stop + 待注入的 instructions
+  log.jsonl     逐步事件日志（assistant / tool_call / tool_result / error / finish）
+  result.md     副 Agent 的最终回答
+```
+
+- 主 Agent 的 `pause` / `resume` / `stop` / `update` 就是**写 `control.json`** 并同步改
+  `meta.json`，所以命令立即返回、零延迟可见；
+- 副 Agent 在**每个步骤前后**检查 `control.json`：`pause` 原地等待，`stop` 结束任务，
+  新指令以 `[主Agent新指令]` 消息注入对话并优先执行；
+- 所有状态文件都用「临时文件 + 原子替换」写盘，主 Agent 不会读到半截数据。
+
+### 8.5 注意事项
+
+1. **副 Agent 拥有真实操作能力**（能动鼠标、能执行 PowerShell），派任务前想清楚边界；
+   不需要的能力在 UI 里关掉对应工具开关。
+2. 后台副 Agent 是分离进程，主 Agent（或终端）退出**不会**连带杀掉它；要终止用 `stop`。
+3. 前几次调用模型接口后任务才会真正动起来；进程冷启动（首次 `import openai`）可能稍慢。
+4. 副 Agent 也没法"看"截图内容——它靠 `pixel` / `findcolor` / 窗口列表判断界面状态。
