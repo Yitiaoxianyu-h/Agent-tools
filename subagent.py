@@ -335,6 +335,8 @@ def _set_desired(task_id, desired):
     status = meta.get("status")
     if desired == "run" and status in FINAL_STATUSES:
         return {"ok": False, "error": f"任务已结束({status})，无法恢复", "task_id": task_id}
+    if desired in ("pause", "stop") and status in FINAL_STATUSES:
+        return {"ok": False, "error": f"任务已结束({status})，无需{desired}", "task_id": task_id}
     ctl = read_control(task_id)
     ctl["desired"] = desired
     write_control(task_id, ctl)
@@ -345,12 +347,12 @@ def _set_desired(task_id, desired):
     elif desired == "stop":
         update_meta(task_id, status=STATUS_STOPPED, finished_at=now_ts())
         set_state(task_id, status=STATUS_STOPPED, message="已被主 Agent 停止")
-    elif desired == "run" and status == STATUS_PAUSED:
+    elif desired == "run" and status in (STATUS_PAUSED, STATUS_RUNNING):
         if worker_alive(task_id):
             update_meta(task_id, status=STATUS_RUNNING)
             set_state(task_id, status=STATUS_RUNNING, message="已被主 Agent 恢复")
         else:
-            # 暂停期间进程没了（被杀 / 重启过电脑）：重新拉起一个副 Agent
+            # 进程已经没了（暂停期间被杀 / 重启过电脑 / 卡死被清理）：重新拉起一个副 Agent
             append_log(task_id, {"type": "system",
                                  "content": "原副 Agent 进程已不在，恢复时重新拉起"})
             spawn(task_id)
