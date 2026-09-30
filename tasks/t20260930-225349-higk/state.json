@@ -1,0 +1,6 @@
+{
+  "status": "failed",
+  "step": 0,
+  "message": "未配置 API Key。请先执行：\n  python subagent.py config --set api_key=<你的KEY>\n或打开 Qt 界面：python subagent.py ui",
+  "updated_at": 1790780030.7534726
+}
