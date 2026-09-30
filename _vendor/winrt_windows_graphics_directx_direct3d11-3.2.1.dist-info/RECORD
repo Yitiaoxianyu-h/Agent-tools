@@ -1,0 +1,11 @@
+winrt/_winrt_windows_graphics_directx_direct3d11.cp313-win_amd64.pyd,sha256=tCK_2ys7KeHpady_4FPXrfLZ20AFryNlBJAJ6IWdTL8,68608
+winrt/_winrt_windows_graphics_directx_direct3d11.pyi,sha256=GGJPjnedSzb-zrzLqm_lpoQUD9xzbyRagZGiF1nqw-8,2538
+winrt/windows/graphics/directx/direct3d11/__init__.py,sha256=oRp1Q366dSB-qQD0B6EpEWvVHzoS_ielD-MKPSD0Q3Y,904
+winrt/windows/graphics/directx/direct3d11/__pycache__/__init__.cpython-313.pyc,,
+winrt/windows/graphics/directx/direct3d11/py.typed,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+winrt_windows_graphics_directx_direct3d11-3.2.1.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+winrt_windows_graphics_directx_direct3d11-3.2.1.dist-info/METADATA,sha256=5vrXPETxv7Kk674jUwp9Us8rQne2Vfsl9JdWZDeoYrM,1103
+winrt_windows_graphics_directx_direct3d11-3.2.1.dist-info/RECORD,,
+winrt_windows_graphics_directx_direct3d11-3.2.1.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+winrt_windows_graphics_directx_direct3d11-3.2.1.dist-info/WHEEL,sha256=qV0EIPljj1XC_vuSatRWjn02nZIz3N1t8jsZz7HBr2U,101
+winrt_windows_graphics_directx_direct3d11-3.2.1.dist-info/top_level.txt,sha256=BzwQb4dZRt0NxCXi10ARjWsox7Asmtf_lXrw_KR-D_E,6

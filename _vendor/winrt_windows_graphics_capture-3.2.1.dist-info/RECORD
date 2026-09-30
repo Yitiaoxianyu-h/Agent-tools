@@ -1,0 +1,11 @@
+winrt/_winrt_windows_graphics_capture.cp313-win_amd64.pyd,sha256=UoHAtz0Xp_e28NRoX7XWtViFLKyV1XG6u2wP6w6O-FI,142336
+winrt/_winrt_windows_graphics_capture.pyi,sha256=UmqeE48ZOK2Q6zP_MmxMlCDe9x-BYFpjg643eQ3_ufM,11881
+winrt/windows/graphics/capture/__init__.py,sha256=SfAuqAzDw0dkk0klVaMkm_GfOMIVPqAWzMsFsN6wYD0,788
+winrt/windows/graphics/capture/__pycache__/__init__.cpython-313.pyc,,
+winrt/windows/graphics/capture/py.typed,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+winrt_windows_graphics_capture-3.2.1.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+winrt_windows_graphics_capture-3.2.1.dist-info/METADATA,sha256=hZXG-AOG_UL5qIEIK_3XYPeSdXsVmu_Bx4iOVtIo7qo,1678
+winrt_windows_graphics_capture-3.2.1.dist-info/RECORD,,
+winrt_windows_graphics_capture-3.2.1.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+winrt_windows_graphics_capture-3.2.1.dist-info/WHEEL,sha256=qV0EIPljj1XC_vuSatRWjn02nZIz3N1t8jsZz7HBr2U,101
+winrt_windows_graphics_capture-3.2.1.dist-info/top_level.txt,sha256=BzwQb4dZRt0NxCXi10ARjWsox7Asmtf_lXrw_KR-D_E,6
