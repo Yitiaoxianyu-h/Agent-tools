@@ -990,7 +990,8 @@ def main(argv=None):
     if args.cmd == "list":
         tasks = list_tasks()
         _print([{k: t.get(k) for k in
-                 ("id", "title", "status", "steps", "created_at", "updated_at", "error")}
+                 ("id", "title", "status", "steps", "pid", "worker_alive",
+                  "created_at", "updated_at", "error")}
                 for t in tasks])
         return
 
