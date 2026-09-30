@@ -870,12 +870,23 @@ def _build_parser():
 
     sub.add_parser("screen", help="打印主屏分辨率")
 
+    sa = sub.add_parser("subagent", help="副 Agent：派发/管理子任务（实现见 subagent.py）")
+    sa.add_argument("rest", nargs=argparse.REMAINDER,
+                    help="透传给 subagent.py 的参数，如：run --task \"...\" / list / status <id>")
+
     return p
 
 
 def main(argv=None):
     parser = _build_parser()
     args = parser.parse_args(argv)
+
+    # 副 Agent 统一入口：把剩余参数原样转给 subagent.py
+    if args.cmd == "subagent":
+        import subagent
+        subagent.main(args.rest)
+        return
+
     at = AgentTools()
 
     if args.cmd == "shot":

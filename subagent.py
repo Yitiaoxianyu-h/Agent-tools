@@ -398,6 +398,9 @@ def spawn(task_id):
         )
     finally:
         devnull.close()
+    # 立刻把状态置为 running，主 Agent 不用等子进程冷启动
+    update_meta(task_id, status=STATUS_RUNNING)
+    set_state(task_id, status=STATUS_RUNNING, message=f"副 Agent 进程已启动 (pid={proc.pid})")
     append_log(task_id, {"type": "system", "content": f"副 Agent 进程已启动 pid={proc.pid}"})
     return proc.pid
 
@@ -732,13 +735,13 @@ class SubAgentRunner:
 
     # ---- 主循环 ----
     def run(self):
-        from openai import OpenAI
-
         if not self.cfg.get("api_key"):
             raise RuntimeError(
                 "未配置 API Key。请先执行：\n"
                 "  python subagent.py config --set api_key=<你的KEY>\n"
                 "或打开 Qt 界面：python subagent.py ui")
+
+        from openai import OpenAI   # 放到校验之后，避免没配 Key 时白白冷启动导入
 
         meta = load_meta(self.task_id)
         if not meta:
@@ -1010,9 +1013,11 @@ def main(argv=None):
     if args.cmd == "_worker":
         try:
             SubAgentRunner(load_config(), args.task_id).run()
-        except Exception:
+        except Exception as e:
             append_log(args.task_id, {"type": "error", "content": traceback.format_exc()})
-            update_meta(args.task_id, status=STATUS_FAILED, error="副 Agent 进程异常退出")
+            update_meta(args.task_id, status=STATUS_FAILED,
+                        error=f"{type(e).__name__}: {e}", finished_at=now_ts())
+            set_state(args.task_id, status=STATUS_FAILED, message=str(e))
         return
 
     parser.print_help()

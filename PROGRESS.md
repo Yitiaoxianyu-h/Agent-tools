@@ -20,7 +20,34 @@
 
 ## 已完成
 
-（暂无）
+### 1) `subagent.py` —— 副 Agent 引擎 + CLI（已完成，已自测）
+
+- 配置管理：`config.json`（默认值 ← 文件 ← 环境变量），支持 `SUBAGENT_API_KEY` /
+  `OPENAI_API_KEY` / `SUBAGENT_BASE_URL` / `OPENAI_BASE_URL` / `SUBAGENT_MODEL` 覆盖。
+- 任务持久化：`tasks/<task_id>/` 下 `meta.json` / `state.json` / `control.json` /
+  `log.jsonl` / `result.md`；写文件用「临时文件 + 原子替换」，避免主 Agent 读到半截。
+- 控制信号（跨进程）：`control.json.desired = run|pause|stop` + `instructions`（追加指令，
+  用 `consumed` 计数避免重复注入）。副 Agent 在每个步骤前后都会 `_check_control`。
+- Agent Loop：OpenAI 兼容 Chat Completions + function calling，无工具调用即视为完成；
+  `max_steps` 兜底；异常/停止/超步数都会正确落盘状态。
+- 工具集：`desktop`（复用 `agent_tools.AgentTools`，26 个 action）、`shell`（PowerShell，
+  默认 cwd=workspace）、`read_file` / `write_file`（相对路径基于 workspace）。工具按
+  `config.tools.*` 开关动态生成。
+- CLI：`config / run / list / status / logs / pause / resume / stop / update / rm / ui`，
+  以及内部命令 `_worker`；`run` 默认后台（`spawn()` 用 DETACHED_PROCESS 起独立进程），
+  加 `--foreground` 可前台阻塞。
+- 已自测通过：`config --show`、`run`（后台起进程）、`status`、`logs`、pause/resume/stop、
+  update 追加指令、rm 清理、已结束任务拒绝 resume。
+
+### 踩坑记录（后续 AI 注意）
+
+- `spawn()` 起来的 detached 进程**冷启动较慢**（首次 `import openai` 可能要几十秒），
+  所以 `spawn()` 里会**立刻**把 meta 状态写成 running，不等子进程自己更新。
+- `run()` 里 `from openai import OpenAI` 必须放在 api_key 校验**之后**，否则没配 Key 时
+  也会白白冷启动导入。
+- `AgentTools.activate/move/resize/set_topmost/close_window/click_on_window` 都**同时接受
+  字符串标题和 WindowInfo**（内部会 `find_window`），所以传 title 即可。
+- `_set_desired()` 会立刻改 meta.status（不等副 Agent 醒来），主 Agent 查询零延迟。
 
 ## 关键约定（后续 AI 请遵守）
 
