@@ -291,6 +291,8 @@ def list_tasks():
         meta["state"] = state
         # meta 里的 status 优先，其次看 state
         meta["status"] = meta.get("status") or state.get("status") or STATUS_PENDING
+        if meta["status"] in (STATUS_RUNNING, STATUS_PAUSED):
+            meta["worker_alive"] = worker_alive(name)
         tasks.append(meta)
     tasks.sort(key=lambda m: m.get("created_at", 0), reverse=True)
     return tasks
@@ -303,6 +305,8 @@ def task_status(task_id):
     state = read_json(_state_path(task_id), {}) or {}
     meta["state"] = state
     meta["status"] = meta.get("status") or state.get("status") or STATUS_PENDING
+    if meta["status"] in (STATUS_RUNNING, STATUS_PAUSED):
+        meta["worker_alive"] = worker_alive(task_id)
     meta.pop("dir", None)
     return meta
 
@@ -342,8 +346,14 @@ def _set_desired(task_id, desired):
         update_meta(task_id, status=STATUS_STOPPED, finished_at=now_ts())
         set_state(task_id, status=STATUS_STOPPED, message="已被主 Agent 停止")
     elif desired == "run" and status == STATUS_PAUSED:
-        update_meta(task_id, status=STATUS_RUNNING)
-        set_state(task_id, status=STATUS_RUNNING, message="已被主 Agent 恢复")
+        if worker_alive(task_id):
+            update_meta(task_id, status=STATUS_RUNNING)
+            set_state(task_id, status=STATUS_RUNNING, message="已被主 Agent 恢复")
+        else:
+            # 暂停期间进程没了（被杀 / 重启过电脑）：重新拉起一个副 Agent
+            append_log(task_id, {"type": "system",
+                                 "content": "原副 Agent 进程已不在，恢复时重新拉起"})
+            spawn(task_id)
     return {"ok": True, "task_id": task_id, "desired": desired}
 
 
@@ -399,10 +409,23 @@ def spawn(task_id):
     finally:
         devnull.close()
     # 立刻把状态置为 running，主 Agent 不用等子进程冷启动
-    update_meta(task_id, status=STATUS_RUNNING)
+    update_meta(task_id, status=STATUS_RUNNING, pid=proc.pid)
     set_state(task_id, status=STATUS_RUNNING, message=f"副 Agent 进程已启动 (pid={proc.pid})")
     append_log(task_id, {"type": "system", "content": f"副 Agent 进程已启动 pid={proc.pid}"})
     return proc.pid
+
+
+def worker_alive(task_id):
+    """判断任务的副 Agent 进程是否还活着（依据 meta 里记录的 pid）。"""
+    meta = load_meta(task_id) or {}
+    pid = meta.get("pid")
+    if not pid:
+        return False
+    try:
+        import psutil
+        return psutil.pid_exists(int(pid))
+    except Exception:
+        return True   # 判断不了时保守起见当作活着，避免误判导致重复拉起
 
 
 # ---------------------------------------------------------------- 工具集

@@ -197,8 +197,8 @@ class MainWindow(QMainWindow):
         toolbar.addStretch(1)
         layout.addLayout(toolbar)
 
-        self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(["任务ID", "标题", "状态", "步数", "更新时间", "错误"])
+        self.table = QTableWidget(0, 7)
+        self.table.setHorizontalHeaderLabels(["任务ID", "标题", "状态", "步数", "进程", "更新时间", "错误"])
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
@@ -208,7 +208,8 @@ class MainWindow(QMainWindow):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
         self.table.itemSelectionChanged.connect(self._on_select)
         layout.addWidget(self.table, 3)
 
@@ -287,18 +288,26 @@ class MainWindow(QMainWindow):
         for row, t in enumerate(tasks):
             status = t.get("status", subagent.STATUS_PENDING)
             label, color = STATUS_STYLE.get(status, (status, "#333333"))
+            # 进程列：运行中/暂停的任务显示 pid 与存活标记
+            if status in (subagent.STATUS_RUNNING, subagent.STATUS_PAUSED) and t.get("pid"):
+                alive = bool(t.get("worker_alive"))
+                proc_text = f"{t['pid']} {'●' if alive else '✘ 已退出'}"
+                proc_color = "#1a7f37" if alive else "#c0392b"
+            else:
+                proc_text, proc_color = "-", "#8a8a8a"
             cells = [
-                t.get("id", ""),
-                t.get("title", ""),
-                label,
-                str(t.get("steps", 0)),
-                _fmt_time(t.get("updated_at")),
-                t.get("error") or "",
+                (t.get("id", ""), None),
+                (t.get("title", ""), None),
+                (label, color),
+                (str(t.get("steps", 0)), None),
+                (proc_text, proc_color),
+                (_fmt_time(t.get("updated_at")), None),
+                (t.get("error") or "", None),
             ]
-            for col, text in enumerate(cells):
+            for col, (text, cell_color) in enumerate(cells):
                 item = QTableWidgetItem(str(text))
-                if col == 2:
-                    item.setForeground(QColor(color))
+                if cell_color:
+                    item.setForeground(QColor(cell_color))
                 if col == 0:
                     item.setData(Qt.ItemDataRole.UserRole, t.get("id"))
                 self.table.setItem(row, col, item)
